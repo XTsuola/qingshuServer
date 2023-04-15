@@ -1,8 +1,8 @@
 import { Router } from "https://deno.land/x/oak@v10.2.1/mod.ts";
-import { mota } from "./mota.ts"
+import { qingshu } from "./qingshu.ts"
 
 const router = new Router();
 
-mota(router)
+qingshu(router)
 
 export default router

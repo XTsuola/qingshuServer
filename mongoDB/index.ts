@@ -6,7 +6,7 @@ import {
 
 const client = new MongoClient();
 await client.connect("mongodb://127.0.0.1:27017");
-const db = client.database("keyuan");
+const db = client.database("qingshu");
 
 // 查询总数
 export async function queryCount(
