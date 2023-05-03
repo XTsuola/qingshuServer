@@ -92,6 +92,13 @@ export function qingshu(router: Router) {
         }
       }
       if (count == data?.userData.length) {
+        let loseId = 0;
+        for (let i = 0; i < data.userData.length; i++) {
+          if (data.userData[i].status == 3) {
+            loseId = data.userData[i].id;
+            break;
+          }
+        }
         const arr = [1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8];
         for (let i = 0; i < arr.length; i++) {
           let rand = Math.floor(Math.random() * arr.length);
@@ -114,7 +121,7 @@ export function qingshu(router: Router) {
         const param2 = {
           status: 2,
           allRound: 1,
-          nowRound: 1,
+          nowRound: loseId == 1 ? 2 : 1,
           cardPile: cardPile,
           disPile: disPile,
           userData: data?.userData,
