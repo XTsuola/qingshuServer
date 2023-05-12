@@ -36,31 +36,17 @@ export function qingshu(router: Router) {
         };
       }
     }).get("/qingshu/resetGame", async (ctx: any): Promise<void> => { // 重置整个游戏
-      let userData = [{
-        id: 1,
-        handCards: [],
-        disCards: [],
-        userName: "月色",
-        status: 0,
-        preStatus: 1,
-        winCount: 0,
-      }, {
-        id: 2,
-        handCards: [],
-        disCards: [],
-        userName: "江南",
-        status: 0,
-        preStatus: 1,
-        winCount: 0,
-      }];
+      let userData: any = [];
       const param1 = { id: 1 };
       const param2 = {
-        status: 1,
+        status: 0,
         allRound: 1,
         nowRound: 1,
         cardPile: [],
         disPile: [],
         userData: userData,
+        waitArea: [1, 2, 3, 4],
+        preArea: [0, 0, 0, 0],
       };
       const res = await update(param1, param2, "gameData");
       if (res.modifiedCount == 1) {
@@ -79,6 +65,74 @@ export function qingshu(router: Router) {
           "msg": "获取失败",
         };
       }
+    }).get("/qingshu/selectChair", async (ctx: any): Promise<void> => { // 选择椅子
+      const params: any = helpers.getQuery(ctx);
+      const data: Document | undefined = await queryOne({ id: 1 }, "gameData");
+      const ind = data?.waitArea.findIndex((item: any) => item == params.id);
+      if (data && ind != -1) {
+        data.waitArea.splice(ind, 1);
+        data.preArea[params.num - 1] = parseInt(params.id);
+      }
+      const ind2 = data?.preArea.findIndex((item: any) => item == params.id);
+      if (data && ind2 != -1 && data.preArea[params.num - 1] == 0) {
+        data.preArea[ind2] = 0;
+        data.preArea[params.num - 1] = parseInt(params.id);
+      }
+      const param1 = { id: 1 };
+      const param2 = {
+        waitArea: data?.waitArea,
+        preArea: data?.preArea,
+      };
+      const res = await update(param1, param2, "gameData");
+      ctx.response.body = {
+        "code": 200,
+        "msg": "操作成功",
+      };
+    }).get("/qingshu/goTree", async (ctx: any): Promise<void> => { // 回到等待区
+      const params: any = helpers.getQuery(ctx);
+      const data: Document | undefined = await queryOne({ id: 1 }, "gameData");
+      const ind = data?.preArea.findIndex((item: any) => item == params.id);
+      if (data && ind != -1) {
+        data.preArea.splice(ind, 1, 0);
+        data.waitArea.push(params.id);
+      }
+      const param1 = { id: 1 };
+      const param2 = {
+        waitArea: data?.waitArea,
+        preArea: data?.preArea,
+      };
+      const res = await update(param1, param2, "gameData");
+      ctx.response.body = {
+        "code": 200,
+        "msg": "操作成功",
+      };
+    }).get("/qingshu/goRoom", async (ctx: any): Promise<void> => { // 进入房间
+      const data: Document | undefined = await queryOne({ id: 1 }, "gameData");
+      const list = data?.preArea.filter((item: any) => item != 0);
+      let nameList = ["月色", "江南", "鹿鸣", "湛雨"];
+      let userData: any = [];
+      for (let i = 0; i < list.length; i++) {
+        userData.push({
+          id: i + 1,
+          handCards: [],
+          disCards: [],
+          userId: list[i],
+          userName: nameList[list[i] - 1],
+          status: 0,
+          preStatus: 1,
+          winCount: 0,
+        });
+      }
+      const param1 = { id: 1 };
+      const param2 = {
+        status: 1,
+        userData: userData,
+      };
+      const res = await update(param1, param2, "gameData");
+      ctx.response.body = {
+        "code": 200,
+        "msg": "操作成功",
+      };
     }).get("/qingshu/zhunbei", async (ctx: any): Promise<void> => { // 准备
       const params: any = helpers.getQuery(ctx);
       const data: Document | undefined = await queryOne({ id: 1 }, "gameData");
@@ -92,10 +146,10 @@ export function qingshu(router: Router) {
         }
       }
       if (count == data?.userData.length) {
-        let loseId = 0;
+        let winId = 0;
         for (let i = 0; i < data.userData.length; i++) {
-          if (data.userData[i].status == 3) {
-            loseId = data.userData[i].id;
+          if (data.userData[i].status == 6) {
+            winId = data.userData[i].id;
             break;
           }
         }
@@ -106,22 +160,38 @@ export function qingshu(router: Router) {
           arr[rand] = arr[i];
           arr[i] = sum;
         }
-        // const arr = [1, 1, 1, 8, 8, 3, 8];
-        let cardPile = arr.slice(5, arr.length);
-        let disPile = arr.slice(0, 3);
-        data.userData[0].handCards = arr.slice(3, 4);
-        data.userData[0].disCards = [];
-        data.userData[0].status = 0;
-        data.userData[0].preStatus = 1;
-        data.userData[1].handCards = arr.slice(4, 5);
-        data.userData[1].disCards = [];
-        data.userData[1].status = 0;
-        data.userData[1].preStatus = 1;
+        // const arr = [6, 3, 1, 4, 8, 2, 5, 1, 4, 2, 1];
+        let cardPile;
+        let disPile;
+        if (data.userData.length == 2) {
+          cardPile = arr.slice(5, arr.length);
+          disPile = arr.slice(0, 3);
+          data.userData[0].handCards = arr.slice(3, 4);
+          data.userData[1].handCards = arr.slice(4, 5);
+        } else if (data.userData.length == 3) {
+          cardPile = arr.slice(6, arr.length);
+          disPile = arr.slice(0, 3);
+          data.userData[0].handCards = arr.slice(3, 4);
+          data.userData[1].handCards = arr.slice(4, 5);
+          data.userData[2].handCards = arr.slice(5, 6);
+        } else if (data.userData.length == 4) {
+          cardPile = arr.slice(5, arr.length);
+          disPile = arr.slice(0, 1);
+          data.userData[0].handCards = arr.slice(1, 2);
+          data.userData[1].handCards = arr.slice(2, 3);
+          data.userData[2].handCards = arr.slice(3, 4);
+          data.userData[3].handCards = arr.slice(4, 5);
+        }
+        for (let i = 0; i < data.userData.length; i++) {
+          data.userData[i].disCards = [];
+          data.userData[i].status = 0;
+          data.userData[i].preStatus = 1;
+        }
         const param1 = { id: 1 };
         const param2 = {
           status: 2,
           allRound: 1,
-          nowRound: loseId == 1 ? 2 : 1,
+          nowRound: winId != 0 ? winId : 1,
           cardPile: cardPile,
           disPile: disPile,
           userData: data?.userData,
@@ -173,6 +243,11 @@ export function qingshu(router: Router) {
       const params: any = helpers.getQuery(ctx);
       const data: Document | undefined = await queryOne({ id: 1 }, "gameData");
       // console.log(params.id, params.wz, params.tid, params.ypai, params.tpai);
+      const startRoundList = (data?.userData.filter((item: any) => {
+        item.status != 3;
+      })).map((item: any) => {
+        return item.id;
+      });
       if (data?.userData.find((item: any) => item.id == params.id)) {
         let qipai = [];
         if (params.wz == 0) {
@@ -201,9 +276,6 @@ export function qingshu(router: Router) {
                 .push(nTPai);
               data.userData.find((item: any) => item.id == params.tid)
                 .status = 3;
-              data.userData.find((item: any) => item.id == params.id)
-                .winCount += 1;
-              data.status = 1;
             }
           }
         }
@@ -220,26 +292,22 @@ export function qingshu(router: Router) {
               item.id == params.tid
             ).handCards[0];
             if (nPai > nTPai || nPai < nTPai) {
-              data.userData.find((item: any) => item.id == params.id)
-                .handCards = [];
-              data.userData.find((item: any) => item.id == params.tid)
-                .handCards = [];
-              data.userData.find((item: any) => item.id == params.id).disCards
-                .push(nPai);
-              data.userData.find((item: any) => item.id == params.tid).disCards
-                .push(nTPai);
               if (nPai < nTPai) {
+                data.userData.find((item: any) => item.id == params.id)
+                  .handCards = [];
+                data.userData.find((item: any) => item.id == params.id).disCards
+                  .push(nPai);
                 data.userData.find((item: any) => item.id == params.id).status =
                   3;
-                data.userData.find((item: any) => item.id == params.tid)
-                  .winCount += 1;
               } else {
                 data.userData.find((item: any) => item.id == params.tid)
+                  .handCards = [];
+                data.userData.find((item: any) => item.id == params.tid)
+                  .disCards
+                  .push(nTPai);
+                data.userData.find((item: any) => item.id == params.tid)
                   .status = 3;
-                data.userData.find((item: any) => item.id == params.id)
-                  .winCount += 1;
               }
-              data.status = 1;
             }
           }
         }
@@ -263,13 +331,11 @@ export function qingshu(router: Router) {
                 .push(oldPai);
               data.userData.find((item: any) => item.id == params.tid).status =
                 3;
-              data.userData.find((item: any) => item.id == params.id)
-                .winCount += 1;
-              data.status = 1;
             } else {
               let newPai = 0;
               if (data.cardPile.length == 0) {
                 newPai = data.disPile[0];
+                data.disPile = data.disPile.slice(1, data.disPile.length)
               } else {
                 newPai = data.cardPile[0];
                 data.cardPile = data.cardPile.slice(1, data?.cardPile.length);
@@ -307,54 +373,93 @@ export function qingshu(router: Router) {
           data.userData.find((item: any) => item.id == params.id).handCards =
             [];
           data.userData.find((item: any) => item.id == params.id).status = 3;
-          data.userData.find((item: any) => item.id == params.tid)
-            .winCount += 1;
-          data.status = 1;
         }
       }
+      let over = false;
       if (data?.cardPile.length == 0) { // 最后比大小
-        const nPai = data.userData.find((item: any) =>
-            item.id == params.id
-          ).handCards.length > 0
-          ? data.userData.find((item: any) => item.id == params.id).handCards[0]
-          : undefined;
-        const nTPai = data.userData.find((item: any) =>
-            item.id == params.tid
-          ).handCards.length > 0
-          ? data.userData.find((item: any) =>
-            item.id == params.tid
-          ).handCards[0]
-          : undefined;
-        if (nPai && nTPai) {
-          if (nPai > nTPai || nPai < nTPai) {
-            data.userData.find((item: any) => item.id == params.id)
-              .handCards = [];
-            data.userData.find((item: any) => item.id == params.tid)
-              .handCards = [];
-            data.userData.find((item: any) => item.id == params.id).disCards
-              .push(nPai);
-            data.userData.find((item: any) => item.id == params.tid).disCards
-              .push(nTPai);
-            if (nPai < nTPai) {
-              data.userData.find((item: any) => item.id == params.id).status =
-                3;
-              data.userData.find((item: any) => item.id == params.tid)
-                .winCount += 1;
-            } else {
-              data.userData.find((item: any) => item.id == params.tid)
-                .status = 3;
-              data.userData.find((item: any) => item.id == params.id)
-                .winCount += 1;
-            }
-            data.status = 1;
+        over = true;
+        let loseCount = 0;
+        for (let i = 0; i < data?.userData.length; i++) {
+          if (data?.userData[i].status == 3) {
+            loseCount++;
           }
         }
+        data.status = 1;
+        if (data && loseCount == data.userData.length - 1) {
+          for (let i = 0; i < data.userData.length; i++) {
+            if (data.userData[i].status != 3) {
+              let disNowId = data.userData[i].handCards[0];
+              data.userData[i].disCards.push(disNowId);
+              data.userData[i].handCards = [];
+              data.userData[i].status = 6;
+              data.userData[i].winCount += 1;
+            }
+          }
+        } else {
+          const scoreList = data.userData.map((item: any) => item.handCards[0]);
+          const result = scoreList.sort((a: number, b: number) => {
+            return b - a;
+          })[0];
+          for (let i = 0; i < data.userData.length; i++) {
+            if (data.userData[i].handCards[0]) {
+              if (data.userData[i].handCards[0] == result) {
+                let disNowId = data.userData[i].handCards[0];
+                data.userData[i].disCards.push(disNowId);
+                data.userData[i].handCards = [];
+                data.userData[i].status = 6;
+                data.userData[i].winCount += 1;
+              } else {
+                let disNowId = data.userData[i].handCards[0];
+                data.userData[i].disCards.push(disNowId);
+                data.userData[i].handCards = [];
+                data.userData[i].status = 3;
+              }
+            }
+          }
+        }
+      }
+      if (!over) {
+        let loseCount = 0;
+        for (let i = 0; i < data?.userData.length; i++) {
+          if (data?.userData[i].status == 3) {
+            loseCount++;
+          }
+        }
+        if (data && loseCount == data.userData.length - 1) {
+          data.status = 1;
+          for (let i = 0; i < data.userData.length; i++) {
+            if (data.userData[i].status != 3) {
+              let disNowId = data.userData[i].handCards[0];
+              data.userData[i].disCards.push(disNowId);
+              data.userData[i].handCards = [];
+              data.userData[i].status = 6;
+              data.userData[i].winCount += 1;
+            }
+          }
+        }
+      }
+      let nowRound = data?.nowRound;
+      const roundList = (data?.userData.filter((item: any) => item.status != 3))
+        .map((item: any) => {
+          return item.id;
+        });
+      const ind = roundList.findIndex((item: number) => item == data?.nowRound);
+      if (ind == -1) {
+        const index = startRoundList.findIndex((item: number) =>
+          item == data?.nowRound
+        );
+        nowRound = startRoundList[index + 1]
+          ? startRoundList[index + 1]
+          : startRoundList[0];
+      } else {
+        nowRound = roundList[ind + 1] ? roundList[ind + 1] : roundList[0];
       }
       const param1 = { id: 1 };
       const param2 = {
         cardPile: data?.cardPile,
+        disPile: data?.disPile,
         userData: data?.userData,
-        nowRound: data?.nowRound == 1 ? 2 : 1,
+        nowRound: nowRound,
         status: data?.status,
       };
       const res = await update(param1, param2, "gameData");
