@@ -160,7 +160,7 @@ export function qingshu(router: Router) {
           arr[rand] = arr[i];
           arr[i] = sum;
         }
-        // const arr = [6, 3, 1, 4, 8, 2, 5, 1, 4, 2, 1];
+        // const arr = [8, 4, 1, 4, 8, 2, 5, 1, 4, 2, 1];
         let cardPile;
         let disPile;
         if (data.userData.length == 2) {
@@ -242,7 +242,6 @@ export function qingshu(router: Router) {
     }).get("/qingshu/chupai", async (ctx: any): Promise<void> => { // 出牌
       const params: any = helpers.getQuery(ctx);
       const data: Document | undefined = await queryOne({ id: 1 }, "gameData");
-      // console.log(params.id, params.wz, params.tid, params.ypai, params.tpai);
       const startRoundList = (data?.userData.filter((item: any) => {
         item.status != 3;
       })).map((item: any) => {
